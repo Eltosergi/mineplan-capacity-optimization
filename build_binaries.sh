@@ -5,7 +5,9 @@
 # nuevo (los binarios que venian en el repo son Mach-O de Mac, no corren
 # ahi) pero funciona igual en Mac.
 #
-# Requisitos: g++ con C++17 y pthread, cmake, make.
+# Requisitos: solo g++ con C++17 (y pthread para mineplan). No requiere
+# cmake: mineflow es en realidad un solo archivo (mineflow.cpp) con una
+# definicion (MVD_MINEFLOW_EXE), asi que se compila directo.
 #
 # Uso:
 #   ./build_binaries.sh
@@ -25,9 +27,7 @@ echo "OK -> $FRAMEWORK_DIR/mineplan"
 
 echo "=== Compilando mineflow (MineFlow) ==="
 cd "$FRAMEWORK_DIR/MineFlow"
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --target mineflow -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
-cp build/bin/mineflow "$FRAMEWORK_DIR/MineFlow/mineflow"
+g++ -O3 -std=c++17 -DMVD_MINEFLOW_EXE mineflow.cpp -o mineflow
 chmod +x "$FRAMEWORK_DIR/MineFlow/mineflow"
 echo "OK -> $FRAMEWORK_DIR/MineFlow/mineflow"
 
