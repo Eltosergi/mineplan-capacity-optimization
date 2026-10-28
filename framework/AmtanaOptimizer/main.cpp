@@ -64,7 +64,9 @@ int main (int argc, char**argv) {
 
 	int ResultFd = (argc > 2) ? std::atoi(argv[2]) : -1;
 	if (ResultFd >= 0) {
-		write(ResultFd, ResultValues, sizeof(ResultValues));
+		if (write(ResultFd, ResultValues, sizeof(ResultValues)) != (ssize_t) sizeof(ResultValues)) {
+			std::cerr << "ADVERTENCIA: no se pudo enviar el resultado por el pipe al ejecutor." << std::endl;
+		}
 		close(ResultFd);
 	} else {
 		std::cout << "Optimized Solution NPV: " + std::to_string(*Data.GetNPV()) << std::endl;
