@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+
+# Binarios compilados (regenerar con build_binaries.sh en cada maquina/SO)
+framework/mineplan
+framework/AmtanaOptimizer/mineplan
+framework/AmtanaOptimizer/mineplan_mac
+framework/MineFlow/mineflow
+framework/MineFlow/build/
+
+# Salidas de corridas (se regeneran al correr las pruebas)
+/sensor/
+resultados_*.csv
+smac3_output/

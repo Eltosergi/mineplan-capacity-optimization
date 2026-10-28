@@ -1,0 +1,31 @@
+# Build products
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Build directories
+build/
+cmake-build-*/
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*~
+
+# Python validator: local environments, credentials, and generated reports
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+*.lic
+gurobi.log
+validation/results/
+sensor/period_results.csv

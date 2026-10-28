@@ -1,0 +1,35 @@
+# Performance
+NumberOfThreads=all
+ControlUPL=5
+WarmStart=false
+# File parameters
+FileNameBase=../escenarios/realizacion0
+FileNameExtension=.txt
+# Orebody parameters
+MinX=1
+MaxX=27
+MinY=1
+MaxY=40
+MinZ=1
+MaxZ=13
+DefaultRockTonnage=6300
+DefaultMetalTonnage=0
+DefaultRockType=2
+NumberOfScenarios=5
+# Long-term parameters
+NumberOfPeriods=1
+AnnualDiscountRate=0.08
+# Valores explicitos para los periodos 0,1,2,3,4, en ese orden.
+Investment=0,0,0,0,0
+MiningCapacity=1000000,1000000,1000000,1000000,1000000
+MiningCost=25,25,25,25,25
+# Global Economic parameters
+NumberOfMetals=2
+EffectiveMetalPrices=13228,0
+# Short-term parameters (processing plant)
+ProcessingCapacity=4100,4100,4100,4100,4100
+NumberOfRockTypes=2
+RockTypes=1,2
+NumberOfOperationalModes=2
+OperationalMode=Name=1;ProcessingRate=225,225,225,225,225;ProcessingCost=13,13,13,13,13;Recoveries=0.89,0.89;w=0.70,0.30
+OperationalMode=Name=2;ProcessingRate=225,225,225,225,225;ProcessingCost=18.5,18.5,18.5,18.5,18.5;Recoveries=0.80,0.80;w=0.30,0.70
