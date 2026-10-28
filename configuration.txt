@@ -17,7 +17,7 @@ DefaultMetalTonnage=0
 DefaultRockType=2
 NumberOfScenarios=5
 # Long-term parameters
-NumberOfPeriods=1
+NumberOfPeriods=5
 AnnualDiscountRate=0.08
 # Valores explicitos para los periodos 0,1,2,3,4, en ese orden.
 Investment=0,0,0,0,0
