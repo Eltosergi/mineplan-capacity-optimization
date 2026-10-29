@@ -1,0 +1,166 @@
+Metadata-Version: 2.4
+Name: ConfigSpace
+Version: 1.2.2
+Summary: Creation and manipulation of parameter configuration spaces for automated algorithm configuration and hyperparameter tuning. 
+Author: Matthias Feurer, Katharina Eggensperger, Syed Mohsin Ali, Christina Hernandez Wunsch, Julien-Charles Levesque, Jost Tobias Springenberg, Philipp Mueller, Marius Lindauer, Jorn Tuyls, Eddie Bergman, Arjun Krishnakumar, Thijs Snelleman
+Maintainer-email: Matthias Feurer <feurerm@informatik.uni-freiburg.de>, Eddie Bergman <eddiebergmanhs@gmail.com>, Arjun Krishnakumar <arjunkrishnakumarmec@gmail.com>, Thijs Snelleman <snelleman@aim.rwth-aachen.de>
+License: # ConfigSpace
+        
+        Copyright (c) 2014-2021, ConfigSpace developers
+        Matthias Feurer
+        Katharina Eggensperger
+        and others (see commit history).
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+            * Redistributions of source code must retain the above copyright
+              notice, this list of conditions and the following disclaimer.
+            * Redistributions in binary form must reproduce the above copyright
+              notice, this list of conditions and the following disclaimer in the
+              documentation and/or other materials provided with the distribution.
+            * Neither the name of the <organization> nor the
+              names of its contributors may be used to endorse or promote products
+              derived from this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+        DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+        ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+        # networkx (nx subpackage)
+        
+        Copyright (C) 2004-2014, NetworkX Developers
+        Aric Hagberg <hagberg@lanl.gov>
+        Dan Schult <dschult@colgate.edu>
+        Pieter Swart <swart@lanl.gov>
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are
+        met:
+        
+         * Redistributions of source code must retain the above copyright
+           notice, this list of conditions and the following disclaimer.
+        
+         * Redistributions in binary form must reproduce the above
+           copyright notice, this list of conditions and the following
+           disclaimer in the documentation and/or other materials provided
+           with the distribution.
+        
+         * Neither the name of the NetworkX Developers nor the names of its
+           contributors may be used to endorse or promote products derived
+           from this software without specific prior written permission.
+        
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+        "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+        LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+        A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+        OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+        SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+        LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+        DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+        THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+Project-URL: homepage, https://github.com/automl/ConfigSpace
+Project-URL: documentation, https://automl.github.io/ConfigSpace/main/
+Keywords: algorithm,configuration,hyperparameter,optimization,empirical,evaluation,black,box
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Natural Language :: English
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Software Development
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: pyparsing
+Requires-Dist: scipy
+Requires-Dist: typing_extensions
+Requires-Dist: more_itertools
+Provides-Extra: dev
+Requires-Dist: ConfigSpace[docs,test,tooling]; extra == "dev"
+Provides-Extra: test
+Requires-Dist: pytest>=7; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest_cases; extra == "test"
+Provides-Extra: tooling
+Requires-Dist: mypy; extra == "tooling"
+Requires-Dist: pre-commit; extra == "tooling"
+Requires-Dist: ruff; extra == "tooling"
+Requires-Dist: types-pyyaml; extra == "tooling"
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == "docs"
+Requires-Dist: mkdocs-material; extra == "docs"
+Requires-Dist: mkdocs-autorefs; extra == "docs"
+Requires-Dist: mkdocs-gen-files; extra == "docs"
+Requires-Dist: mkdocs-literate-nav; extra == "docs"
+Requires-Dist: mkdocs-glightbox; extra == "docs"
+Requires-Dist: mkdocstrings[python]; extra == "docs"
+Requires-Dist: markdown-exec[ansi]; extra == "docs"
+Requires-Dist: mike; extra == "docs"
+Requires-Dist: pillow; extra == "docs"
+Requires-Dist: cairosvg; extra == "docs"
+Requires-Dist: black; extra == "docs"
+Dynamic: license-file
+
+# ConfigSpace
+
+A simple Python module implementing a domain specific language to manage
+configuration spaces for algorithm configuration and hyperparameter optimization tasks.  
+Distributed under BSD 3-clause, see LICENSE except all files in the directory
+ConfigSpace.nx, which are copied from the networkx package and licensed
+under a BSD license.
+
+The documentation can be found
+at [https://automl.github.io/ConfigSpace/latest/](https://automl.github.io/ConfigSpace/latest/).
+Further examples can be found in the [SMAC documentation](https://automl.github.io/SMAC3/main/examples/index.html).
+
+## Minimum Example
+
+```python
+from ConfigSpace import ConfigurationSpace
+
+cs = ConfigurationSpace(
+    name="myspace",
+    space={
+        "a": (0.1, 1.5),  # UniformFloat
+        "b": (2, 10),  # UniformInt
+        "c": ["mouse", "cat", "dog"],  # Categorical
+    },
+)
+
+configs = cs.sample_configuration(2)
+```
+
+## Citing the ConfigSpace
+
+```bibtex
+@article{
+    title   = {BOAH: A Tool Suite for Multi-Fidelity Bayesian Optimization & Analysis of Hyperparameters},
+    author  = {M. Lindauer and K. Eggensperger and M. Feurer and A. Biedenkapp and J. Marben and P. Müller and F. Hutter},
+    journal = {arXiv:1908.06756 {[cs.LG]}},
+    date    = {2019},
+}
+```
