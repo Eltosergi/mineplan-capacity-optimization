@@ -15,7 +15,3 @@ framework/AmtanaOptimizer/mineplan_mac
 framework/MineFlow/mineflow
 framework/MineFlow/build/
 
-# Salidas de corridas (se regeneran al correr las pruebas)
-/sensor/
-resultados_*.csv
-smac3_output/
