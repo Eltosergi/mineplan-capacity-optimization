@@ -178,6 +178,37 @@ def build_config_text(
     return texto
 
 
+def build_static_config_text(
+    original_text: str,
+    id_name: str,
+    tabla: "dict[str, CapacityOption]",
+    number_of_scenarios: int | None = None,
+) -> str:
+    """Variante de build_config_text para un PLAN ESTATICO: un solo ID se
+    aplica igual en los 5 periodos (sin crecer como en los 4 optimizadores),
+    y su inversion completa se paga una sola vez, en el periodo 0 (0 en
+    los periodos siguientes, porque no hay mas cambios de capacidad)."""
+    opcion = tabla[id_name]
+    n = read_number_of_periods(original_text)
+
+    mining_capacity_list = ",".join([_format_number(opcion.mining_capacity)] * n)
+    mining_cost_list = ",".join([_format_number(opcion.mining_cost)] * n)
+    processing_rate_list = ",".join([_format_number(opcion.processing_rate)] * n)
+    processing_cost_a_list = ",".join([_format_number(opcion.processing_cost_a)] * n)
+    processing_cost_b_list = ",".join([_format_number(opcion.processing_cost_b)] * n)
+    investment_list = ",".join([_format_number(opcion.inversion)] + ["0"] * (n - 1))
+
+    texto = original_text
+    texto = _replace_scalar_line(texto, "MiningCapacity", mining_capacity_list)
+    texto = _replace_scalar_line(texto, "MiningCost", mining_cost_list)
+    texto = _replace_scalar_line(texto, "Investment", investment_list)
+    texto = _replace_operational_mode(texto, "1", processing_rate_list, processing_cost_a_list)
+    texto = _replace_operational_mode(texto, "2", processing_rate_list, processing_cost_b_list)
+    if number_of_scenarios is not None:
+        texto = _replace_scalar_line(texto, "NumberOfScenarios", str(number_of_scenarios))
+    return texto
+
+
 class CapacitySearchProblem:
     """Envuelve lectura/escritura de configuration.txt y la llamada real a
     mineplan (via executer.ejecutar). Se usa como context manager para
