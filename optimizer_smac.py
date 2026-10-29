@@ -64,8 +64,18 @@ def main() -> int:
                 print(f"[{trial_idx}/{args.trials}] Propuesta {secuencia_propuesta} -> evaluando {secuencia} ...", flush=True)
 
                 npv, computation_time = problem.evaluate(secuencia)
-                # SMAC minimiza "cost"; nosotros maximizamos NPV, asi que el costo es -NPV.
-                smac.tell(info, TrialValue(cost=float(-npv), time=float(computation_time)))
+                # SMAC minimiza "cost"; nosotros maximizamos NPV, asi que el costo
+                # base es -NPV. Se escala /1e6 (a "menos millones") porque el
+                # encoder log-scaled que usa SMAC por defecto resta un epsilon de
+                # 1e-10 que, en float64, se pierde por completo contra numeros de
+                # magnitud ~1e7 (el NPV crudo) -> termina en log(0) = -inf y el
+                # modelo surrogate (sklearn RandomForest) revienta con
+                # "Input y contains infinity". Con el costo en el rango de
+                # decenas (en vez de decenas de millones) ese epsilon si se nota
+                # en la resta, y no pasa. No afecta el NPV real que se reporta:
+                # es solo la escala interna que ve el modelo de SMAC.
+                costo_escalado = float(-npv) / 1_000_000
+                smac.tell(info, TrialValue(cost=costo_escalado, time=float(computation_time)))
                 cp.log_trial(writer, trial_idx, secuencia, problem.tabla, npv, computation_time)
                 csv_file.flush()
                 print(f"    NPV={npv} ComputationTime={computation_time}s", flush=True)
