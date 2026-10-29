@@ -76,7 +76,7 @@ def main() -> int:
                 # es solo la escala interna que ve el modelo de SMAC.
                 costo_escalado = float(-npv) / 1_000_000
                 smac.tell(info, TrialValue(cost=costo_escalado, time=float(computation_time)))
-                cp.log_trial(writer, trial_idx, secuencia, problem.tabla, npv, computation_time)
+                cp.log_trial(writer, trial_idx, secuencia, problem.tabla, problem.number_of_scenarios, npv, computation_time)
                 csv_file.flush()
                 print(f"    NPV={npv} ComputationTime={computation_time}s", flush=True)
 

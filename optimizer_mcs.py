@@ -129,7 +129,7 @@ def _cli_main() -> int:
 
                 npv, computation_time = problem.evaluate(secuencia)
                 trial_counter["n"] += 1
-                cp.log_trial(writer, trial_counter["n"], secuencia, problem.tabla, npv, computation_time)
+                cp.log_trial(writer, trial_counter["n"], secuencia, problem.tabla, problem.number_of_scenarios, npv, computation_time)
                 csv_file.flush()
                 print(f"    NPV={npv} ComputationTime={computation_time}s", flush=True)
                 return float(-npv)  # MCS minimiza; nosotros maximizamos NPV.

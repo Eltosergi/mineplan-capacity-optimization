@@ -223,16 +223,17 @@ def open_results_csv(path: Path):
     el encabezado ya escrito. El caller es responsable de cerrarlo."""
     f = path.open("w", newline="")
     writer = csv.writer(f)
-    writer.writerow(["trial", "ids", "investment_per_period", "npv", "computation_time"])
+    writer.writerow(["trial", "ids", "investment_per_period", "number_of_scenarios", "npv", "computation_time"])
     return f, writer
 
 
-def log_trial(writer, trial_idx: int, id_sequence: Sequence[str], tabla: "dict[str, CapacityOption]", npv: Decimal, computation_time: Decimal) -> None:
+def log_trial(writer, trial_idx: int, id_sequence: Sequence[str], tabla: "dict[str, CapacityOption]", number_of_scenarios: int, npv: Decimal, computation_time: Decimal) -> None:
     inversiones = investments_for(id_sequence, tabla)
     writer.writerow([
         trial_idx,
         ";".join(id_sequence),
         ";".join(_format_number(v) for v in inversiones),
+        number_of_scenarios,
         npv,
         computation_time,
     ])

@@ -50,7 +50,7 @@ def main() -> int:
                 print(f"[{trial}/{args.trials}] Probando {secuencia} ...", flush=True)
 
                 npv, computation_time = problem.evaluate(secuencia)
-                cp.log_trial(writer, trial, secuencia, problem.tabla, npv, computation_time)
+                cp.log_trial(writer, trial, secuencia, problem.tabla, problem.number_of_scenarios, npv, computation_time)
                 csv_file.flush()
                 print(f"    NPV={npv} ComputationTime={computation_time}s", flush=True)
 

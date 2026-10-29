@@ -76,7 +76,7 @@ def main() -> int:
 
                 npv, computation_time = problem.evaluate(secuencia)
                 study.tell(trial, float(npv))
-                cp.log_trial(writer, corridas_reales, secuencia, problem.tabla, npv, computation_time)
+                cp.log_trial(writer, corridas_reales, secuencia, problem.tabla, problem.number_of_scenarios, npv, computation_time)
                 csv_file.flush()
                 print(f"    NPV={npv} ComputationTime={computation_time}s", flush=True)
 
