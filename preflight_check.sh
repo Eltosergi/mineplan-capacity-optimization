@@ -43,7 +43,13 @@ if [ -f configuration.txt ]; then
             # mineplan corre con cwd=framework/, asi que FileNameBase
             # (ej. "../escenarios/realizacion0") es relativo a esa carpeta;
             # concatenar literal y dejar que el "-f" resuelva el ".." funciona bien.
-            archivo="framework/${base}${i}${ext}"
+            # LoadAndSaveData.cpp inserta un "0" extra antes del indice
+            # cuando ScenarioIndex < 10 (y nada mas alla de eso).
+            if [ "$i" -lt 10 ]; then
+                archivo="framework/${base}0${i}${ext}"
+            else
+                archivo="framework/${base}${i}${ext}"
+            fi
             [ -f "$archivo" ] || faltan_escenarios=$((faltan_escenarios + 1))
         done
         if [ "$faltan_escenarios" -eq 0 ]; then
