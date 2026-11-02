@@ -128,17 +128,25 @@ def test_combo_invariante_a_permutar_filas():
 # ---------------------------------------------------------------------------
 
 def test_combo_encuentra_optimo_con_menos_evaluaciones_que_random_search():
+    """Usa T=4 (en vez del T=3 del resto del archivo, modulo-level): con
+    T=3 la distancia de Hamming al objetivo solo toma 4 valores distintos
+    (0..3), un paisaje de recompensa demasiado plano/con muchos empates
+    para que el kernel muestre ventaja frente al azar con un presupuesto
+    chico y muy pocos puntos iniciales (el MCMC del horseshoe no tiene
+    evidencia suficiente para aprender nada util todavia). Con T=4 hay 5
+    niveles distintos, mas diseno inicial y mas presupuesto/semillas."""
     tabla = _tabla_pequena()
-    valid_sequences = cp.secuencias_validas(tabla, T, H_COLUMN, BASE_ID)
+    T_local = 4
+    valid_sequences = cp.secuencias_validas(tabla, T_local, H_COLUMN, BASE_ID)
     elegibles, _valores, _h_base = cp.eligible_pool(tabla, H_COLUMN, BASE_ID)
     objetivo = valid_sequences[len(valid_sequences) // 2]
 
     def objective_fn(secuencia):
         return float(-sum(1 for a, b in zip(secuencia, objetivo) if a != b))
 
-    budget = 15
-    n0 = 3
-    seeds = range(5)
+    budget = 25
+    n0 = 5
+    seeds = range(8)
 
     evals_random = []
     evals_combo = []
@@ -153,7 +161,7 @@ def test_combo_encuentra_optimo_con_menos_evaluaciones_que_random_search():
         )
 
         evaluadas, _valores_obj, _mejor, _mejor_val = run_combo(
-            valid_sequences=valid_sequences, elegibles=elegibles, T=T,
+            valid_sequences=valid_sequences, elegibles=elegibles, T=T_local,
             objective_fn=objective_fn, n0=n0, seed=seed, budget=budget,
             vecinos_fn=_vecinos_fn_para(tabla), n_samples=5, warmup=20,
             acq_mode="exhaustive",
