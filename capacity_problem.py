@@ -24,11 +24,12 @@ importa este modulo para no duplicar la logica de leer Ejemplo.csv,
 escribir configuration.txt y llamar a executer.ejecutar().
 """
 import csv
+import random
 import re
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Sequence
+from typing import Callable, Iterable, Sequence
 
 import executer
 
@@ -268,3 +269,218 @@ def log_trial(writer, trial_idx: int, id_sequence: Sequence[str], tabla: "dict[s
         npv,
         computation_time,
     ])
+
+
+# ============================================================================
+# Infraestructura nueva: validez por VALOR de una columna h (no por posicion
+# en Ejemplo.csv ni por el numero del ID), usada por BO-GP, COMBO y las
+# versiones factibles de SMAC/TPE. No modifica nada de lo anterior; ids_pool,
+# is_monotonic, repair_monotonic y CapacitySearchProblem.evaluate() (que usa
+# la semantica posicional antigua) siguen intactos para random search, SMAC,
+# TPE y MCS existentes.
+#
+# Regla de validez (igual para todo lo de aqui abajo): una secuencia
+# x[0..T-1] de IDs es valida si h(x[0]) >= h(h_base) y h(x[t]) >= h(x[t-1])
+# para t=1..T-1, comparando siempre por VALOR de la columna h_column (nunca
+# por posicion de fila ni por el numero del ID). h_base es el NOMBRE del ID
+# base (por defecto BASELINE_ID = "ID3"), buscado por nombre en la tabla.
+# ============================================================================
+
+DEFAULT_H_COLUMN = "Capacidad Mina"
+
+
+def load_raw_table() -> "dict[str, dict[str, str]]":
+    """Lee Ejemplo.csv completo, como texto, indexado por 'Caso'. A
+    diferencia de load_capacity_table(), no fija de antemano que columnas
+    importan, asi que sirve para leer cualquier columna h por nombre."""
+    tabla: "dict[str, dict[str, str]]" = {}
+    with CAPACITY_TABLE_PATH.open(newline="", encoding="utf-8") as f:
+        for fila in csv.DictReader(f):
+            tabla[fila["Caso"]] = dict(fila)
+    return tabla
+
+
+def canonical_order(ids: Iterable[str]) -> list[str]:
+    """Orden canonico interno: por nombre del ID como texto. No depende de
+    la posicion de sus filas en Ejemplo.csv, asi que permutar esas filas no
+    cambia este orden ni nada que dependa de el (desempates, muestreo,
+    indices de codificacion one-hot en BO-GP/COMBO)."""
+    return sorted(set(ids), key=str)
+
+
+def h_values(tabla: "dict[str, dict[str, str]]", h_column: str) -> "dict[str, Decimal]":
+    """{ID: Decimal(valor de h_column)} para cada fila de `tabla`. `tabla`
+    tiene la forma de load_raw_table() (texto crudo por columna), para que
+    tambien se le puedan pasar tablas sinteticas de prueba."""
+    return {id_: _to_decimal(str(fila[h_column])) for id_, fila in tabla.items()}
+
+
+def eligible_pool(
+    tabla: "dict[str, dict[str, str]]",
+    h_column: str = DEFAULT_H_COLUMN,
+    h_base: str = BASELINE_ID,
+) -> "tuple[list[str], dict[str, Decimal], Decimal]":
+    """IDs elegibles (h >= h del ID base), en orden canonico, junto con el
+    diccionario completo de valores h y el valor base h(h_base)."""
+    valores = h_values(tabla, h_column)
+    if h_base not in valores:
+        raise KeyError(f"ID base {h_base!r} no esta en la tabla (columna {h_column!r})")
+    h_base_valor = valores[h_base]
+    elegibles = [id_ for id_ in canonical_order(valores.keys()) if valores[id_] >= h_base_valor]
+    return elegibles, valores, h_base_valor
+
+
+def secuencias_validas(
+    tabla: "dict[str, dict[str, str]]",
+    T: int,
+    h_column: str = DEFAULT_H_COLUMN,
+    h_base: str = BASELINE_ID,
+) -> "list[tuple[str, ...]]":
+    """Todas las secuencias validas de T IDs, por busqueda en profundidad
+    sobre el orden canonico de los IDs elegibles. Si dos IDs comparten el
+    mismo valor de h, ambos ordenes entre ellos son validos y se enumeran
+    por separado (la decision es el ID, no el valor de h: regla 1 y 2).
+
+    Para el caso real (Ejemplo.csv, columna "Capacidad Mina", h_base="ID3"):
+    9 IDs elegibles (ID3..ID11) con h todos distintos, T=5 -> exactamente
+    C(9+5-1, 5) = C(13, 5) = 1287 secuencias (formula estandar de
+    combinaciones con repeticion / secuencias no decrecientes sobre un
+    orden total de 9 valores)."""
+    elegibles, valores, h_base_valor = eligible_pool(tabla, h_column, h_base)
+
+    resultados: "list[tuple[str, ...]]" = []
+    actual: list[str] = []
+
+    def dfs(h_min: Decimal) -> None:
+        if len(actual) == T:
+            resultados.append(tuple(actual))
+            return
+        for id_ in elegibles:
+            if valores[id_] >= h_min:
+                actual.append(id_)
+                dfs(valores[id_])
+                actual.pop()
+
+    dfs(h_base_valor)
+    return resultados
+
+
+def vecinos_validos(
+    x: Sequence[str],
+    tabla: "dict[str, dict[str, str]]",
+    h_column: str = DEFAULT_H_COLUMN,
+    h_base: str = BASELINE_ID,
+) -> "list[tuple[str, ...]]":
+    """Secuencias validas que difieren de x en exactamente una posicion. x
+    debe ser en si misma una secuencia valida; no se revalida de punta a
+    punta. Para la posicion t, el nuevo ID debe cumplir
+    h(x[t-1]) <= h(nuevo) <= h(x[t+1]) (con h(x[-1]) = h(h_base) en el
+    borde izquierdo, y sin cota superior en el borde derecho)."""
+    elegibles, valores, h_base_valor = eligible_pool(tabla, h_column, h_base)
+    T = len(x)
+    vecinos: "list[tuple[str, ...]]" = []
+
+    for t in range(T):
+        h_min = valores[x[t - 1]] if t > 0 else h_base_valor
+        h_max = valores[x[t + 1]] if t + 1 < T else None
+        for id_ in elegibles:
+            if id_ == x[t]:
+                continue
+            v = valores[id_]
+            if v < h_min:
+                continue
+            if h_max is not None and v > h_max:
+                continue
+            nuevo = list(x)
+            nuevo[t] = id_
+            vecinos.append(tuple(nuevo))
+
+    return vecinos
+
+
+class CachedEvaluator:
+    """Envoltorio con cache (regla 4: ninguna secuencia se evalua dos veces)
+    alrededor de una funcion objetivo inyectable. objective_fn(secuencia)
+    puede ser una corrida real de mineplan (ver mineplan_objective()) o una
+    funcion sintetica de prueba: CachedEvaluator no sabe ni le importa cual.
+    Esto separa el "algoritmo puro" de busqueda (que solo ve .evaluate()) de
+    la parte que llama a mineplan, igual que hace run_mcs() en
+    optimizer_mcs.py."""
+
+    def __init__(self, objective_fn: Callable[[Sequence[str]], object]):
+        self.objective_fn = objective_fn
+        self.cache: "dict[tuple[str, ...], object]" = {}
+        self.n_evaluaciones_reales = 0
+
+    def evaluate(self, secuencia: Sequence[str]) -> object:
+        clave = tuple(secuencia)
+        if clave in self.cache:
+            return self.cache[clave]
+        resultado = self.objective_fn(clave)
+        self.cache[clave] = resultado
+        self.n_evaluaciones_reales += 1
+        return resultado
+
+    def evaluadas(self) -> "list[tuple[str, ...]]":
+        return list(self.cache.keys())
+
+    def __len__(self) -> int:
+        return len(self.cache)
+
+
+def mineplan_objective(problem: "CapacitySearchProblem") -> Callable[[Sequence[str]], "tuple[Decimal, Decimal]"]:
+    """Funcion objetivo real: escribe configuration.txt para `secuencia` y
+    corre mineplan, devolviendo (npv, computation_time). A proposito NO pasa
+    por CapacitySearchProblem.is_feasible()/is_monotonic(), porque esas
+    funciones usan la semantica POSICIONAL antigua sobre ids_pool() (regla 6:
+    no se tocan). Las secuencias que llegan aqui ya fueron validadas por
+    VALOR con secuencias_validas()/vecinos_validos() (reglas 1 y 2), asi que
+    no corresponde revalidarlas con el criterio antiguo basado en posicion."""
+
+    def objective_fn(secuencia: Sequence[str]) -> "tuple[Decimal, Decimal]":
+        if problem._original_text is None:
+            raise RuntimeError("CapacitySearchProblem debe usarse dentro de un 'with'")
+        nuevo_texto = build_config_text(
+            problem._original_text, secuencia, problem.tabla, problem.number_of_scenarios
+        )
+        CONFIG_PATH.write_text(nuevo_texto)
+        return executer.ejecutar()
+
+    return objective_fn
+
+
+def diseno_inicial(secuencias: Sequence[Sequence[str]], n0: int, seed: int) -> "list[tuple[str, ...]]":
+    """Diseno inicial compartido por BO-GP y COMBO: n0 secuencias validas
+    elegidas al azar (semilla fija) con primeros IDs x[0] todos distintos
+    entre si en lo posible (una por cada x[0] disponible, hasta agotar n0 o
+    los primeros-IDs distintos; si n0 excede la cantidad de primeros-IDs
+    distintos, se completa al azar entre las secuencias restantes).
+    Determinista e invariante a permutar las filas de Ejemplo.csv, siempre
+    que `secuencias` venga de secuencias_validas() (que ya usa orden
+    canonico internamente)."""
+    rng = random.Random(seed)
+
+    por_primer_id: "dict[str, list[tuple[str, ...]]]" = {}
+    for s in secuencias:
+        por_primer_id.setdefault(s[0], []).append(tuple(s))
+
+    primeros_ids = canonical_order(por_primer_id.keys())
+    rng.shuffle(primeros_ids)
+
+    elegidas: "list[tuple[str, ...]]" = []
+    for primer_id in primeros_ids:
+        if len(elegidas) >= n0:
+            break
+        candidatas = por_primer_id[primer_id]
+        elegidas.append(candidatas[rng.randrange(len(candidatas))])
+
+    if len(elegidas) < n0:
+        ya_elegidas = set(elegidas)
+        restantes = [tuple(s) for s in secuencias if tuple(s) not in ya_elegidas]
+        rng.shuffle(restantes)
+        for s in restantes:
+            if len(elegidas) >= n0:
+                break
+            elegidas.append(s)
+
+    return elegidas
