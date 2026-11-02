@@ -45,12 +45,23 @@ def test_secuencias_validas_count_caso_real():
 
 
 def test_secuencias_validas_count_tabla_pequena():
-    """6 elegibles (uno de ellos con empate) para T=3: comb. con repeticion
-    C(6+3-1,3) = C(8,3) = 56."""
+    """6 elegibles con 5 VALORES distintos de h (BASE y E1 empatan en 10):
+    C(6+3-1,3)=56 NO aplica aqui, esa formula es solo para valores todos
+    distintos (como en el caso real de arriba). Con un empate, cada
+    posicion que cae en el nivel empatado (10) puede tomar BASE o E1 de
+    forma independiente, asi que hay que sumar por cuantas veces aparece
+    ese nivel en la secuencia:
+
+        k=0 (nivel 10 no aparece): C(4+3-1,3)   * 2^0 = C(6,3)*1 = 20*1 = 20
+        k=1 (aparece una vez):      C(4+2-1,2)   * 2^1 = C(5,2)*2 = 10*2 = 20
+        k=2 (aparece dos veces):    C(4+1-1,1)   * 2^2 = C(4,1)*4 =  4*4 = 16
+        k=3 (aparece las 3 veces):  C(4+0-1,0)   * 2^3 = C(3,0)*8 =  1*8 =  8
+        total = 20+20+16+8 = 64
+    """
     tabla = _tabla_pequena()
     secuencias = cp.secuencias_validas(tabla, T=3, h_column="h", h_base="BASE")
-    assert len(secuencias) == 56
-    assert len(set(secuencias)) == 56
+    assert len(secuencias) == 64
+    assert len(set(secuencias)) == 64
     assert all(len(s) == 3 for s in secuencias)
 
 

@@ -4,18 +4,30 @@
 optimizer_tpe.py (que no se modifica: regla 6).
 
 Investigacion (por que esto SI se puede sin reparar/descartar): Optuna usa
-un espacio de busqueda "define-by-run": las opciones que se le pasan a
-trial.suggest_categorical() para el periodo t se pueden calcular en el
-momento, a partir de lo que ya se sugirio para los periodos anteriores
-DENTRO DEL MISMO trial. Esto es un patron estandar y documentado de Optuna
-para espacios de busqueda condicionales/secuenciales (no un truco interno).
-Concretamente, el dominio ofrecido en cada suggest_categorical ya viene
-restringido a los IDs cuyo h es >= el h del ID elegido en el periodo
-anterior (o >= h_base en el primer periodo, regla 3): el TPESampler nunca
-ve ni puede proponer un ID fuera de ese dominio valido para esa posicion,
-en esa trayectoria. No hace falta podar (TrialPruned, como hace
-optimizer_tpe.py) ni reparar nada despues: cada trial generado es valido
-por construccion.
+un espacio de busqueda "define-by-run", pero con una restriccion
+importante que solo se confirma en tiempo de ejecucion: una misma clave de
+parametro (ej. "period_1") no puede tener un conjunto de opciones distinto
+entre trials ("CategoricalDistribution does not support dynamic value
+space"). Por eso NO alcanza con restringir las opciones de
+suggest_categorical(f"period_{t}", ...) segun el ID elegido en el periodo
+anterior usando siempre la misma clave "period_t": distintos trials
+eligen distintos IDs en el periodo anterior, y por lo tanto les
+corresponden distintos conjuntos de opciones para la misma clave, lo cual
+Optuna rechaza.
+
+La solucion (tambien estandar y documentada en Optuna para espacios
+condicionales/de "branching"): en vez de reutilizar la misma clave de
+parametro para todos los trials, el contexto (el ID elegido en el periodo
+anterior) se codifica DENTRO del nombre del parametro, como
+f"period_{t}_after_{id_anterior}". Para una clave CONCRETA de esa forma,
+el conjunto de opciones es siempre el mismo (es una funcion determinista
+de id_anterior, que ya esta fijo en el nombre), asi que Optuna nunca ve
+una clave con opciones cambiantes. El dominio sigue restringido a los IDs
+cuyo h es >= el h del ID elegido en el periodo anterior (o >= h_base en el
+primer periodo, regla 3): el TPESampler nunca ve ni puede proponer un ID
+fuera de ese dominio valido para esa posicion, en esa trayectoria. No hace
+falta podar (TrialPruned, como hace optimizer_tpe.py) ni reparar nada
+despues: cada trial generado es valido por construccion.
 
 run_tpe_factible() es el algoritmo puro (no sabe nada de mineplan, Decimal
 ni CSV, solo ve objective_fn(secuencia) -> float a MAXIMIZAR) y nunca
@@ -63,11 +75,17 @@ def run_tpe_factible(
 
         secuencia_lista: list[str] = []
         h_min = h_base_valor
+        anterior = None
         for t in range(T):
             opciones = [id_ for id_ in elegibles if valores[id_] >= h_min]
-            elegido = trial.suggest_categorical(f"period_{t}", opciones)
+            # El contexto (el ID del periodo anterior) va DENTRO del nombre
+            # del parametro: para una clave concreta, las opciones nunca
+            # cambian entre trials (ver docstring del modulo).
+            nombre = "period_0" if t == 0 else f"period_{t}_after_{anterior}"
+            elegido = trial.suggest_categorical(nombre, opciones)
             secuencia_lista.append(elegido)
             h_min = valores[elegido]
+            anterior = elegido
         secuencia = tuple(secuencia_lista)
 
         valor = float(evaluator.evaluate(secuencia))
