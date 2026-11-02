@@ -26,11 +26,19 @@ el numero del ID, regla 1):
      entre cada par de periodos adyacentes), asi que basta con prohibir los
      pares adyacentes; no hace falta uno por cada par de periodos.
 
+run_smac_factible() es el algoritmo puro (no sabe nada de mineplan,
+Decimal ni CSV, solo ve objective_fn(secuencia) -> float a MAXIMIZAR) y
+nunca evalua dos veces la misma secuencia (CachedEvaluator, regla 4): si
+SMAC repropone una ya evaluada, se le informa el valor cacheado sin volver
+a llamar a objective_fn. main() separa la parte que llama a mineplan,
+igual que run_mcs() en optimizer_mcs.py.
+
 Uso:
     python3 optimizer_smac_factible.py --trials 20 --seed 0
 """
 import argparse
 import sys
+from typing import Callable, Sequence
 
 from ConfigSpace import Categorical, ConfigurationSpace, ForbiddenAndConjunction, ForbiddenEqualsClause
 from smac import HyperparameterOptimizationFacade, Scenario
@@ -39,10 +47,10 @@ from smac.runhistory.dataclasses import TrialValue
 import capacity_problem as cp
 
 
-def _build_configspace(elegibles: "list[str]", valores: "dict[str, object]", T: int, seed: int) -> ConfigurationSpace:
+def _build_configspace(elegibles: Sequence[str], valores: "dict[str, object]", T: int, seed: int) -> ConfigurationSpace:
     configspace = ConfigurationSpace(seed=seed)
     for t in range(T):
-        configspace.add(Categorical(f"period_{t}", elegibles))
+        configspace.add(Categorical(f"period_{t}", list(elegibles)))
 
     for t in range(T - 1):
         for id_a in elegibles:
@@ -55,6 +63,43 @@ def _build_configspace(elegibles: "list[str]", valores: "dict[str, object]", T: 
                         )
                     )
     return configspace
+
+
+def run_smac_factible(
+    elegibles: Sequence[str],
+    valores: "dict[str, object]",
+    T: int,
+    objective_fn: Callable[[Sequence[str]], float],
+    trials: int,
+    seed: int,
+    output_directory,
+) -> "tuple[list[tuple[str, ...]], list[float], tuple[str, ...], float]":
+    """Algoritmo puro: construye el configspace con forbidden clauses y
+    corre `trials` rondas ask/tell de SMAC, evaluando cada secuencia
+    propuesta con objective_fn (a MAXIMIZAR; SMAC minimiza, asi que se le
+    informa -valor/1e6 como costo, mismo escalado que optimizer_smac.py
+    para evitar el underflow de epsilon en float64 del commit 3d66772).
+    No sabe nada de mineplan, Decimal ni CSV. Nunca llama a objective_fn
+    dos veces con la misma secuencia (CachedEvaluator, regla 4).
+
+    Devuelve (secuencias_evaluadas_en_orden, valores, mejor_secuencia,
+    mejor_valor)."""
+    configspace = _build_configspace(elegibles, valores, T, seed)
+    scenario = Scenario(configspace, output_directory=output_directory, deterministic=True, n_trials=trials, seed=seed)
+    smac = HyperparameterOptimizationFacade(scenario, target_function=None, overwrite=True)
+
+    evaluator = cp.CachedEvaluator(objective_fn)
+
+    for _ in range(trials):
+        info = smac.ask()
+        secuencia = tuple(info.config[f"period_{t}"] for t in range(T))
+        valor = float(evaluator.evaluate(secuencia))
+        smac.tell(info, TrialValue(cost=-valor / 1_000_000, time=0.0))
+
+    evaluadas = evaluator.evaluadas()
+    valores_obj = [evaluator.cache[s] for s in evaluadas]
+    mejor_idx = max(range(len(valores_obj)), key=lambda i: valores_obj[i])
+    return evaluadas, valores_obj, evaluadas[mejor_idx], valores_obj[mejor_idx]
 
 
 def main() -> int:
@@ -77,9 +122,7 @@ def main() -> int:
     tabla_raw = cp.load_raw_table()
     csv_path = cp.PROYECTO_DIR / "resultados_smac_factible.csv"
     csv_file, writer = cp.open_results_csv(csv_path)
-
-    mejor_npv = None
-    mejor_secuencia = None
+    trial_counter = {"n": 0}
 
     try:
         with cp.CapacitySearchProblem(number_of_scenarios=args.scenarios) as problem:
@@ -88,49 +131,36 @@ def main() -> int:
             print(f"IDs elegibles (h={args.h_column!r} >= h({args.base_id!r})): {elegibles}")
             print(f"Periodos (NumberOfPeriods): {T}")
 
-            configspace = _build_configspace(elegibles, valores, T, args.seed)
-            print(f"Clausulas prohibidas (pares adyacentes que violan monotonia por valor): {len(configspace.forbidden_clauses)}")
-
-            scenario = Scenario(
-                configspace,
-                output_directory=cp.PROYECTO_DIR / "smac3_output_factible",
-                deterministic=True,
-                n_trials=args.trials,
-                seed=args.seed,
-            )
-            smac = HyperparameterOptimizationFacade(scenario, target_function=None, overwrite=True)
-
             mineplan_fn = cp.mineplan_objective(problem)
 
-            for trial_idx in range(1, args.trials + 1):
-                info = smac.ask()
-                config = info.config
-                secuencia = tuple(config[f"period_{t}"] for t in range(T))
-
-                print(f"[{trial_idx}/{args.trials}] Probando {secuencia} ...", flush=True)
-
+            def objective_fn(secuencia: Sequence[str]) -> float:
+                trial_counter["n"] += 1
+                print(f"[{trial_counter['n']}/{args.trials}] Probando {secuencia} ...", flush=True)
                 npv, computation_time = mineplan_fn(secuencia)
-                # Mismo escalado que optimizer_smac.py (commit 3d66772): el
-                # encoder log-scaled de SMAC resta un epsilon de 1e-10 que,
-                # en float64, se pierde contra un NPV de magnitud ~1e7.
-                costo_escalado = float(-npv) / 1_000_000
-                smac.tell(info, TrialValue(cost=costo_escalado, time=float(computation_time)))
                 cp.log_trial(
-                    writer, trial_idx, secuencia, problem.tabla,
+                    writer, trial_counter["n"], secuencia, problem.tabla,
                     problem.number_of_scenarios, npv, computation_time,
                 )
                 csv_file.flush()
                 print(f"    NPV={npv} ComputationTime={computation_time}s", flush=True)
+                return float(npv)
 
-                if mejor_npv is None or npv > mejor_npv:
-                    mejor_npv = npv
-                    mejor_secuencia = secuencia
+            evaluadas, valores_obj, mejor_secuencia, mejor_npv = run_smac_factible(
+                elegibles=elegibles,
+                valores=valores,
+                T=T,
+                objective_fn=objective_fn,
+                trials=args.trials,
+                seed=args.seed,
+                output_directory=cp.PROYECTO_DIR / "smac3_output_factible",
+            )
     finally:
         csv_file.close()
 
     print("\n=== Mejor resultado (SMAC factible) ===")
     print(f"Secuencia: {mejor_secuencia}")
     print(f"NPV: {mejor_npv}")
+    print(f"Secuencias evaluadas: {len(evaluadas)}")
     print(f"Resultados guardados en {csv_path}")
     return 0
 

@@ -17,17 +17,66 @@ en esa trayectoria. No hace falta podar (TrialPruned, como hace
 optimizer_tpe.py) ni reparar nada despues: cada trial generado es valido
 por construccion.
 
+run_tpe_factible() es el algoritmo puro (no sabe nada de mineplan, Decimal
+ni CSV, solo ve objective_fn(secuencia) -> float a MAXIMIZAR) y nunca
+evalua dos veces la misma secuencia (CachedEvaluator, regla 4): si Optuna
+repropone una ya evaluada, se le informa el valor cacheado sin volver a
+llamar a objective_fn. main() separa la parte que llama a mineplan, igual
+que run_mcs() en optimizer_mcs.py.
+
 Uso:
     python3 optimizer_tpe_factible.py --trials 20 --seed 0
 """
 import argparse
 import sys
+from typing import Callable, Sequence
 
 import optuna
 
 import capacity_problem as cp
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+
+def run_tpe_factible(
+    elegibles: Sequence[str],
+    valores: "dict[str, object]",
+    h_base_valor,
+    T: int,
+    objective_fn: Callable[[Sequence[str]], float],
+    trials: int,
+    seed: int,
+) -> "tuple[list[tuple[str, ...]], list[float], tuple[str, ...], float]":
+    """Algoritmo puro: corre `trials` rondas ask/tell de Optuna/TPE con un
+    espacio de busqueda condicional (cada periodo restringido por valor al
+    ID elegido en el periodo anterior). No sabe nada de mineplan, Decimal
+    ni CSV. Nunca llama a objective_fn dos veces con la misma secuencia
+    (CachedEvaluator, regla 4).
+
+    Devuelve (secuencias_evaluadas_en_orden, valores, mejor_secuencia,
+    mejor_valor)."""
+    study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=seed))
+    evaluator = cp.CachedEvaluator(objective_fn)
+
+    for _ in range(trials):
+        trial = study.ask()
+
+        secuencia_lista: list[str] = []
+        h_min = h_base_valor
+        for t in range(T):
+            opciones = [id_ for id_ in elegibles if valores[id_] >= h_min]
+            elegido = trial.suggest_categorical(f"period_{t}", opciones)
+            secuencia_lista.append(elegido)
+            h_min = valores[elegido]
+        secuencia = tuple(secuencia_lista)
+
+        valor = float(evaluator.evaluate(secuencia))
+        study.tell(trial, valor)
+
+    evaluadas = evaluator.evaluadas()
+    valores_obj = [evaluator.cache[s] for s in evaluadas]
+    mejor_idx = max(range(len(valores_obj)), key=lambda i: valores_obj[i])
+    return evaluadas, valores_obj, evaluadas[mejor_idx], valores_obj[mejor_idx]
 
 
 def main() -> int:
@@ -50,14 +99,7 @@ def main() -> int:
     tabla_raw = cp.load_raw_table()
     csv_path = cp.PROYECTO_DIR / "resultados_tpe_factible.csv"
     csv_file, writer = cp.open_results_csv(csv_path)
-
-    study = optuna.create_study(
-        direction="maximize",
-        sampler=optuna.samplers.TPESampler(seed=args.seed),
-    )
-
-    mejor_npv = None
-    mejor_secuencia = None
+    trial_counter = {"n": 0}
 
     try:
         with cp.CapacitySearchProblem(number_of_scenarios=args.scenarios) as problem:
@@ -68,38 +110,34 @@ def main() -> int:
 
             mineplan_fn = cp.mineplan_objective(problem)
 
-            for trial_idx in range(1, args.trials + 1):
-                trial = study.ask()
-
-                secuencia_lista: list[str] = []
-                h_min = h_base_valor
-                for t in range(T):
-                    opciones = [id_ for id_ in elegibles if valores[id_] >= h_min]
-                    elegido = trial.suggest_categorical(f"period_{t}", opciones)
-                    secuencia_lista.append(elegido)
-                    h_min = valores[elegido]
-                secuencia = tuple(secuencia_lista)
-
-                print(f"[{trial_idx}/{args.trials}] Probando {secuencia} ...", flush=True)
-
+            def objective_fn(secuencia: Sequence[str]) -> float:
+                trial_counter["n"] += 1
+                print(f"[{trial_counter['n']}/{args.trials}] Probando {secuencia} ...", flush=True)
                 npv, computation_time = mineplan_fn(secuencia)
-                study.tell(trial, float(npv))
                 cp.log_trial(
-                    writer, trial_idx, secuencia, problem.tabla,
+                    writer, trial_counter["n"], secuencia, problem.tabla,
                     problem.number_of_scenarios, npv, computation_time,
                 )
                 csv_file.flush()
                 print(f"    NPV={npv} ComputationTime={computation_time}s", flush=True)
+                return float(npv)
 
-                if mejor_npv is None or npv > mejor_npv:
-                    mejor_npv = npv
-                    mejor_secuencia = secuencia
+            evaluadas, valores_obj, mejor_secuencia, mejor_npv = run_tpe_factible(
+                elegibles=elegibles,
+                valores=valores,
+                h_base_valor=h_base_valor,
+                T=T,
+                objective_fn=objective_fn,
+                trials=args.trials,
+                seed=args.seed,
+            )
     finally:
         csv_file.close()
 
     print("\n=== Mejor resultado (TPE factible) ===")
     print(f"Secuencia: {mejor_secuencia}")
     print(f"NPV: {mejor_npv}")
+    print(f"Secuencias evaluadas: {len(evaluadas)}")
     print(f"Resultados guardados en {csv_path}")
     return 0
 
